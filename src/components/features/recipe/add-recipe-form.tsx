@@ -1,0 +1,334 @@
+
+import { useState, type SubmitEvent } from "react";
+import {
+    createRecipeService,
+    type Recipe,
+} from "@/services/recipe-service";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select } from "@/components/ui/select";
+
+type AddRecipeFormProps = {
+    onSuccess: (newRecipe: Recipe) => void;
+};
+
+type FormErrors = {
+    name?: string;
+    image?: string;
+    cuisine?: string;
+    difficulty?: string;
+    cookTimeMinutes?: string;
+    mealType?: string;
+    tags?: string;
+    ingredients?: string;
+    instructions?: string;
+};
+
+const messages: FormErrors = {
+    name: "Name is required",
+    image: "Image URL is required",
+    cuisine: "Cuisine is required",
+    difficulty: "Difficulty is required",
+    cookTimeMinutes: "Cook time is required",
+    mealType: "Meal type is required",
+    tags: "Tags are required",
+    ingredients: "Ingredients are required",
+    instructions: "Instructions are required",
+};
+
+export default function AddRecipeForm({ onSuccess }: AddRecipeFormProps) {
+    const [name, setName] = useState("");
+    const [image, setImage] = useState("");
+    const [cuisine, setCuisine] = useState("");
+    const [difficulty, setDifficulty] = useState<
+        "Easy" | "Medium" | "Hard"
+    >("Easy");
+    const [cookTimeMinutes, setCookTimeMinutes] = useState("");
+    const [mealType, setMealType] = useState("");
+    const [tags, setTags] = useState("");
+    const [ingredients, setIngredients] = useState("");
+    const [instructions, setInstructions] = useState("");
+    const [errors, setErrors] = useState<FormErrors>({});
+    const [submitError, setSubmitError] = useState("");
+
+    const checkField = (field: keyof FormErrors, value: string) => {
+        setErrors((current) => ({
+            ...current,
+            [field]: value.trim() === "" ? messages[field] : undefined,
+        }));
+    };
+
+    const handleAddRecipe = async (e: SubmitEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        setSubmitError("");
+
+        const values = {
+            name,
+            image,
+            cuisine,
+            difficulty,
+            cookTimeMinutes,
+            mealType,
+            tags,
+            ingredients,
+            instructions,
+        };
+
+        const newErrors: FormErrors = {};
+        let hasError = false;
+
+        for (const field in values) {
+            const key = field as keyof FormErrors;
+
+            if (values[key].trim() === "") {
+                newErrors[key] = messages[key];
+                hasError = true;
+            }
+        }
+
+        setErrors(newErrors);
+
+        if (hasError) return;
+
+        try {
+            const newRecipe = await createRecipeService({
+                name,
+                image,
+                cuisine,
+                difficulty,
+                cookTimeMinutes: Number(cookTimeMinutes),
+                mealType: mealType
+                    .split("\n")
+                    .filter((item) => item.trim() !== ""),
+                tags: tags.split("\n").filter((item) => item.trim() !== ""),
+                ingredients: ingredients
+                    .split("\n")
+                    .filter((item) => item.trim() !== ""),
+                instructions: instructions
+                    .split("\n")
+                    .filter((item) => item.trim() !== ""),
+            });
+
+            onSuccess(newRecipe);
+        } catch (error) {
+            setSubmitError(
+                typeof error === "object" && error !== null && "response" in error
+                    ? (
+                        error as {
+                            response?: { data?: { message?: string } };
+                        }
+                    ).response?.data?.message || "Unable to create recipe."
+                    : "Unable to connect to the API.",
+            );
+        }
+    };
+
+    return (
+        <form
+            onSubmit={handleAddRecipe}
+            className="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2"
+        >
+            <div className="border-b border-[#EAE8E0] pb-4 sm:col-span-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#718575]">
+                    YOUR COOKBOOK
+                </p>
+                <h3 className="mt-1 text-xl font-semibold tracking-tight text-[#34483A]">
+                    Add a new recipe
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-[#747A71]">
+                    Save the ingredients and steps for a meal worth making again.
+                </p>
+            </div>
+
+            <div>
+                <Label htmlFor="recipe-name" error={errors.name}>
+                    Recipe name
+                </Label>
+                <Input
+                    id="recipe-name"
+                    type="text"
+                    value={name}
+                    onChange={(e) => {
+                        setName(e.target.value);
+                        checkField("name", e.target.value);
+                    }}
+                    onBlur={() => checkField("name", name)}
+                    error={errors.name}
+                    placeholder="e.g. Homemade Lasagna"
+                />
+            </div>
+
+            <div>
+                <Label htmlFor="recipe-image" error={errors.image}>
+                    Image URL
+                </Label>
+                <Input
+                    id="recipe-image"
+                    type="url"
+                    value={image}
+                    onChange={(e) => {
+                        setImage(e.target.value);
+                        checkField("image", e.target.value);
+                    }}
+                    onBlur={() => checkField("image", image)}
+                    placeholder="https://example.com/image.jpg"
+                    error={errors.image}
+                />
+            </div>
+
+            <div>
+                <Label htmlFor="recipe-cuisine" error={errors.cuisine}>
+                    Cuisine
+                </Label>
+                <Input
+                    id="recipe-cuisine"
+                    type="text"
+                    value={cuisine}
+                    onChange={(e) => {
+                        setCuisine(e.target.value);
+                        checkField("cuisine", e.target.value);
+                    }}
+                    onBlur={() => checkField("cuisine", cuisine)}
+                    error={errors.cuisine}
+                    placeholder="e.g. Filipino"
+                />
+            </div>
+
+            <div>
+                <Label htmlFor="recipe-difficulty" error={errors.difficulty}>
+                    Difficulty
+                </Label>
+                <Select
+                    id="recipe-difficulty"
+                    value={difficulty}
+                    onChange={(e) =>
+                        setDifficulty(
+                            e.target.value as "Easy" | "Medium" | "Hard",
+                        )
+                    }
+                >
+                    <option>Easy</option>
+                    <option>Medium</option>
+                    <option>Hard</option>
+                </Select>
+            </div>
+
+            <div>
+                <Label
+                    htmlFor="recipe-cook-time"
+                    error={errors.cookTimeMinutes}
+                >
+                    Cook time (minutes)
+                </Label>
+                <Input
+                    id="recipe-cook-time"
+                    type="number"
+                    min="0"
+                    value={cookTimeMinutes}
+                    onChange={(e) => {
+                        setCookTimeMinutes(e.target.value);
+                        checkField("cookTimeMinutes", e.target.value);
+                    }}
+                    onBlur={() =>
+                        checkField("cookTimeMinutes", cookTimeMinutes)
+                    }
+                    error={errors.cookTimeMinutes}
+                    placeholder="e.g. 30"
+                />
+            </div>
+
+            <div className="sm:col-span-2">
+                <Label htmlFor="recipe-meal-type" error={errors.mealType}>
+                    Meal type <span className="font-normal text-[#747A71]">(one per line)</span>
+                </Label>
+                <Textarea
+                    id="recipe-meal-type"
+                    value={mealType}
+                    onChange={(e) => {
+                        setMealType(e.target.value);
+                        checkField("mealType", e.target.value);
+                    }}
+                    onBlur={() => checkField("mealType", mealType)}
+                    rows={3}
+                    placeholder={"Breakfast\nLunch\nDinner"}
+                    error={errors.mealType}
+                />
+            </div>
+
+            <div className="sm:col-span-2">
+                <Label htmlFor="recipe-tags" error={errors.tags}>
+                    Tags <span className="font-normal text-[#747A71]">(one per line)</span>
+                </Label>
+                <Textarea
+                    id="recipe-tags"
+                    value={tags}
+                    onChange={(e) => {
+                        setTags(e.target.value);
+                        checkField("tags", e.target.value);
+                    }}
+                    onBlur={() => checkField("tags", tags)}
+                    rows={3}
+                    placeholder={"Italian\nComfort food"}
+                    error={errors.tags}
+                />
+            </div>
+
+            <div className="sm:col-span-2 border-t border-[#EAE8E0] pt-5">
+                <p className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-[#718575]">
+                    PREPARATION
+                </p>
+
+                <Label htmlFor="recipe-ingredients" error={errors.ingredients}>
+                    Ingredients <span className="font-normal text-[#747A71]">(one per line)</span>
+                </Label>
+                <Textarea
+                    id="recipe-ingredients"
+                    value={ingredients}
+                    onChange={(e) => {
+                        setIngredients(e.target.value);
+                        checkField("ingredients", e.target.value);
+                    }}
+                    onBlur={() => checkField("ingredients", ingredients)}
+                    rows={4}
+                    placeholder={"2 cups flour\n1 cup milk"}
+                    error={errors.ingredients}
+                />
+            </div>
+
+            <div className="sm:col-span-2">
+                <Label htmlFor="recipe-instructions" error={errors.instructions}>
+                    Instructions <span className="font-normal text-[#747A71]">(one step per line)</span>
+                </Label>
+                <Textarea
+                    id="recipe-instructions"
+                    value={instructions}
+                    onChange={(e) => {
+                        setInstructions(e.target.value);
+                        checkField("instructions", e.target.value);
+                    }}
+                    onBlur={() => checkField("instructions", instructions)}
+                    rows={4}
+                    placeholder={"Prepare the ingredients.\nCook until ready to serve."}
+                    error={errors.instructions}
+                />
+            </div>
+
+            {submitError && (
+                <p
+                    role="alert"
+                    className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 sm:col-span-2"
+                >
+                    {submitError}
+                </p>
+            )}
+
+            <div className="border-t border-[#EAE8E0] pt-5 sm:col-span-2">
+                <Button type="submit" className="w-full">
+                    Add Recipe
+                </Button>
+            </div>
+        </form>
+    );
+}
